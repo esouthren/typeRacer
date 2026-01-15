@@ -47,7 +47,7 @@ class VisualKeyboard extends StatelessWidget {
          pressedKey == key ||
          (key == ' ' && pressedKey == ' '));
     
-    final displayText = key == ' ' ? 'SPACE' : key;
+    final displayText = key == ' ' ? 'Space' : key;
 
     return Container(
       width: width ?? 50,
