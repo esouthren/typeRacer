@@ -1,38 +1,73 @@
-import 'dart:math';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import 'package:typeracer/models/game_model.dart';
+import 'package:typeracer/nav.dart';
+import 'package:typeracer/services/auth_service.dart';
+import 'package:typeracer/services/game_service.dart';
+import 'package:typeracer/widgets/button.dart';
 import 'package:typeracer/widgets/visual_keyboard.dart';
 
-/// Main game screen for TypeRacer
-///
-/// Split into quarters:
-/// - Top quarter: Racecar progress indicator
-/// - Second quarter: Text to type with color-coded progress
-/// - Bottom half: Visual keyboard showing key presses
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
+  final String? gameId;
+
+  const GameScreen({super.key, this.gameId});
 
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
 
 class _GameScreenState extends State<GameScreen> {
-  final FocusNode _focusNode = FocusNode();
+  // Solo mode state
+  bool get _isSolo => widget.gameId == 'solo' || widget.gameId == null;
 
-  // Text to type (lorem ipsum placeholder)
+  @override
+  Widget build(BuildContext context) {
+    if (_isSolo) {
+      return const SoloGameView();
+    }
+
+    return StreamBuilder<GameModel?>(
+      stream: GameService().streamGame(widget.gameId!),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Scaffold(body: Center(child: Text('Error: ${snapshot.error}')));
+        }
+        if (!snapshot.hasData) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+
+        final game = snapshot.data!;
+
+        if (game.status == GameStatus.finished) {
+          return GameSummaryView(game: game);
+        }
+
+        return MultiplayerGameView(game: game);
+      },
+    );
+  }
+}
+
+class SoloGameView extends StatefulWidget {
+  const SoloGameView({super.key});
+
+  @override
+  State<SoloGameView> createState() => _SoloGameViewState();
+}
+
+class _SoloGameViewState extends State<SoloGameView> {
+  final FocusNode _focusNode = FocusNode();
   final String _targetText = 'The quick brown fox jumps over the lazy dog. '
       'Pack my box with five dozen liquor jugs.';
-
-  // Current position in text
   int _currentIndex = 0;
-
-  // Currently pressed key for visual feedback
   String? _currentPressedKey;
+  DateTime? _startTime;
 
   @override
   void initState() {
     super.initState();
-    // Request focus when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
@@ -48,183 +83,517 @@ class _GameScreenState extends State<GameScreen> {
     if (event is! KeyDownEvent) return;
     if (_currentIndex >= _targetText.length) return;
 
+    // Start timer on first key press
+    if (_startTime == null && _currentIndex == 0) {
+      _startTime = DateTime.now();
+    }
+
     final char = event.character;
     if (char == null) return;
 
-    setState(() {
-      _currentPressedKey = char;
-    });
+    setState(() => _currentPressedKey = char);
 
-    // Check if typed character matches expected character
-    final expectedChar = _targetText[_currentIndex];
-    if (char == expectedChar) {
-      setState(() {
-        _currentIndex++;
-      });
-
-      // Check if completed
+    if (char == _targetText[_currentIndex]) {
+      setState(() => _currentIndex++);
       if (_currentIndex >= _targetText.length) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Complete!'), duration: Duration(seconds: 2)),
+        _finishGame();
+      }
+    }
+
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) setState(() => _currentPressedKey = null);
+    });
+  }
+
+  void _finishGame() {
+    final endTime = DateTime.now();
+    final durationInMinutes =
+        endTime.difference(_startTime ?? endTime).inMilliseconds / 60000.0;
+    
+    // Avoid division by zero if duration is too small (e.g. testing)
+    final safeDuration = durationInMinutes > 0 ? durationInMinutes : 0.01;
+    
+    final wpm = ((_targetText.length / 5) / safeDuration).round();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Race Complete!'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$wpm WPM',
+              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            const Text('Great typing!'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              context.pop(); // Close dialog
+              // Reset game
+              setState(() {
+                _currentIndex = 0;
+                _startTime = null;
+              });
+            },
+            child: const Text('Try Again'),
+          ),
+          TextButton(
+            onPressed: () {
+              context.pop(); // Close dialog
+              context.go(AppRoutes.landing);
+            },
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RaceInterface(
+      targetText: _targetText,
+      currentIndex: _currentIndex,
+      currentPressedKey: _currentPressedKey,
+      focusNode: _focusNode,
+      onKeyEvent: _handleKeyPress,
+      title: 'Solo Run',
+    );
+  }
+}
+
+class MultiplayerGameView extends StatefulWidget {
+  final GameModel game;
+
+  const MultiplayerGameView({super.key, required this.game});
+
+  @override
+  State<MultiplayerGameView> createState() => _MultiplayerGameViewState();
+}
+
+class _MultiplayerGameViewState extends State<MultiplayerGameView> {
+  final FocusNode _focusNode = FocusNode();
+  String? _currentPressedKey;
+  int _localCurrentIndex = 0;
+  bool _isRoundFinished = false;
+  
+  // Track previous round index to detect changes
+  int _lastKnownRoundIndex = -1;
+
+  GameRound get _currentRound => widget.game.rounds[widget.game.currentRoundIndex];
+  bool get _isWaitingForStart {
+    final startTime = _currentRound.startTime;
+    return startTime != null && DateTime.now().isBefore(startTime);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _lastKnownRoundIndex = widget.game.currentRoundIndex;
+    _checkRoundReset();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void didUpdateWidget(MultiplayerGameView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.game.currentRoundIndex != _lastKnownRoundIndex) {
+      _lastKnownRoundIndex = widget.game.currentRoundIndex;
+      _resetForNewRound();
+    }
+  }
+  
+  void _checkRoundReset() {
+      // Check if current user is already marked finished in this round (e.g. rejoining)
+    final userId = AuthService().currentUser?.uid;
+    if (userId != null && _currentRound.finishedPlayerIds.contains(userId)) {
+      _isRoundFinished = true;
+      _localCurrentIndex = _currentRound.text.length;
+    }
+  }
+
+  void _resetForNewRound() {
+    setState(() {
+      _localCurrentIndex = 0;
+      _isRoundFinished = false;
+    });
+    _focusNode.requestFocus();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleKeyPress(KeyEvent event) async {
+    if (event is! KeyDownEvent) return;
+    if (_isRoundFinished || _isWaitingForStart) return;
+    
+    final text = _currentRound.text;
+    if (_localCurrentIndex >= text.length) return;
+
+    final char = event.character;
+    if (char == null) return;
+
+    setState(() => _currentPressedKey = char);
+
+    if (char == text[_localCurrentIndex]) {
+      setState(() => _localCurrentIndex++);
+      
+      if (_localCurrentIndex >= text.length) {
+        setState(() => _isRoundFinished = true);
+        
+        // Calculate WPM
+        final startTime = _currentRound.startTime ?? DateTime.now();
+        final endTime = DateTime.now();
+        final durationInMinutes = endTime.difference(startTime).inMilliseconds / 60000.0;
+        final safeDuration = durationInMinutes > 0 ? durationInMinutes : 0.01;
+        final wpm = ((text.length / 5) / safeDuration).round();
+        
+        await GameService().submitRoundResult(
+          widget.game.id, 
+          widget.game.currentRoundIndex,
+          wpm,
         );
       }
     }
-    // If incorrect, do nothing (halts progression)
 
-    // Clear pressed key after short delay
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) {
-        setState(() {
-          _currentPressedKey = null;
-        });
-      }
+      if (mounted) setState(() => _currentPressedKey = null);
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        RaceInterface(
+          targetText: _currentRound.text,
+          currentIndex: _localCurrentIndex,
+          currentPressedKey: _currentPressedKey,
+          focusNode: _focusNode,
+          onKeyEvent: _handleKeyPress,
+          title: 'Round ${widget.game.currentRoundIndex + 1}/${widget.game.rounds.length}: ${_currentRound.category}',
+          players: widget.game.players, // Pass players for visualization
+          scores: widget.game.scores,
+        ),
+        
+        // Countdown / Waiting Overlay
+        if (_isWaitingForStart)
+          CountdownOverlay(startTime: _currentRound.startTime!),
+          
+        // Waiting for others Overlay
+        if (_isRoundFinished && widget.game.status != GameStatus.finished)
+          Container(
+            color: Colors.black54,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.green, size: 64),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Round Complete!',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.white),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Waiting for other players...',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class CountdownOverlay extends StatefulWidget {
+  final DateTime startTime;
+
+  const CountdownOverlay({super.key, required this.startTime});
+
+  @override
+  State<CountdownOverlay> createState() => _CountdownOverlayState();
+}
+
+class _CountdownOverlayState extends State<CountdownOverlay> {
+  late Timer _timer;
+  int _secondsLeft = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateTime();
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (_) => _updateTime());
+  }
+  
+  void _updateTime() {
+    final diff = widget.startTime.difference(DateTime.now()).inSeconds;
+    if (diff != _secondsLeft) {
+      setState(() => _secondsLeft = diff + 1); // +1 to show 3-2-1 properly
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_secondsLeft <= 0) return const SizedBox.shrink();
+    
+    return Container(
+      color: Colors.black45,
+      child: Center(
+        child: Text(
+          '$_secondsLeft',
+          style: const TextStyle(
+            fontSize: 120,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class GameSummaryView extends StatelessWidget {
+  final GameModel game;
+
+  const GameSummaryView({super.key, required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    // Sort players by score
+    final sortedIds = game.scores.keys.toList()
+      ..sort((a, b) => (game.scores[b] ?? 0).compareTo(game.scores[a] ?? 0));
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Game Over')),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            Text('Final Standings', style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 24),
+            Expanded(
+              child: ListView.builder(
+                itemCount: sortedIds.length,
+                itemBuilder: (context, index) {
+                  final userId = sortedIds[index];
+                  final player = game.players.firstWhere(
+                    (p) => p.id == userId, 
+                    orElse: () => GamePlayer(id: userId, displayName: 'Unknown')
+                  );
+                  final score = game.scores[userId] ?? 0;
+                  
+                  return Card(
+                    color: index == 0 ? Colors.amber[100] : null, // Gold for winner
+                    child: ListTile(
+                      leading: Text('#${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                      title: Text(player.displayName),
+                      trailing: Text('$score pts', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Button(
+              label: 'Back to Lobby',
+              onPressed: () => context.go(AppRoutes.landing),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Reusable Interface
+class RaceInterface extends StatelessWidget {
+  final String targetText;
+  final int currentIndex;
+  final String? currentPressedKey;
+  final FocusNode focusNode;
+  final Function(KeyEvent) onKeyEvent;
+  final String title;
+  final List<GamePlayer>? players;
+  final Map<String, int>? scores;
+
+  const RaceInterface({
+    super.key,
+    required this.targetText,
+    required this.currentIndex,
+    required this.currentPressedKey,
+    required this.focusNode,
+    required this.onKeyEvent,
+    required this.title,
+    this.players,
+    this.scores,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final baseFontSize = 24.0;
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TypeRacer'),
+        title: Text(title),
       ),
       body: KeyboardListener(
-        focusNode: _focusNode,
-        onKeyEvent: _handleKeyPress,
+        focusNode: focusNode,
+        onKeyEvent: onKeyEvent,
         child: GestureDetector(
-          onTap: () => _focusNode.requestFocus(),
+          onTap: () => focusNode.requestFocus(),
           child: Column(
             children: [
               // Top quarter: Racecar progress indicator
-              Expanded(
-                flex: 1,
-                child: Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                  color: Theme.of(context).colorScheme.onSurface,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      // Calculate progress (0.0 to 1.0)
-                      final progress = _targetText.isEmpty
-                          ? 0.0
-                          : _currentIndex / _targetText.length;
-                      // Calculate car position so right edge touches finish line at 100%
-                      final carWidth = 80.0;
-                      final startPosition = 120.0;
-                      final finishLineWidth = 21.0;
-                      final endPosition = constraints.maxWidth - finishLineWidth - carWidth;
-                      final carPosition = startPosition + (progress * (endPosition - startPosition));
+              Container(
+                height: 150,
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                color: Theme.of(context).colorScheme.onSurface,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Calculate progress (0.0 to 1.0)
+                    final progress = targetText.isEmpty
+                        ? 0.0
+                        : currentIndex / targetText.length;
+                    
+                    final carWidth = 80.0;
+                    final startPosition = 120.0;
+                    final finishLineWidth = 21.0;
+                    final endPosition = constraints.maxWidth - finishLineWidth - carWidth;
+                    final carPosition = startPosition + (progress * (endPosition - startPosition));
 
-                      return Stack(
-                        children: [
-                          // Checkered finish line (right side)
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            bottom: 0,
-                            child: CustomPaint(
-                              size: Size(finishLineWidth, constraints.maxHeight),
-                              painter: CheckeredFinishLinePainter(),
-                            ),
+                    return Stack(
+                      children: [
+                        // Checkered finish line (right side)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: CustomPaint(
+                            size: Size(finishLineWidth, constraints.maxHeight),
+                            painter: CheckeredFinishLinePainter(),
                           ),
+                        ),
 
-                          // Player name (left side, directly above track)
-                          Positioned(
-                            left: 0,
-                            bottom: constraints.maxHeight / 2,
-                            child: Text(
-                              'Player 1',
-                              style: TextStyle(
-                                color: Colors.black87,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                fontStyle: FontStyle.italic,
+                        // Current Player Name & Score
+                        Positioned(
+                          left: 0,
+                          bottom: constraints.maxHeight / 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'You',
+                                style: TextStyle(
+                                  color: Colors.white, // Inverted on dark bg
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
+                            ],
                           ),
+                        ),
 
-                          // Track line
-                          Positioned(
-                            left: 0,
-                            right: finishLineWidth,
-                            top: constraints.maxHeight / 2,
-                            child: Container(
-                              height: 4,
-                              color: Colors.grey[400],
-                            ),
+                        // Track line
+                        Positioned(
+                          left: 0,
+                          right: finishLineWidth,
+                          top: constraints.maxHeight / 2,
+                          child: Container(
+                            height: 4,
+                            color: Colors.grey[400],
                           ),
+                        ),
 
-                          // Racecar
-                          Positioned(
-                            left: carPosition,
-                            top: constraints.maxHeight / 2 - 30,
-                            child: Transform.scale(
-                              scaleX: -1.0,
-                              child: Image.asset(
-                                'assets/images/race_car_side_view_null_1768514951899.png',
-                                width: carWidth,
-                                height: 60,
-                                fit: BoxFit.contain,
-                              ),
+                        // Racecar
+                        Positioned(
+                          left: carPosition,
+                          top: constraints.maxHeight / 2 - 30,
+                          child: Transform.scale(
+                            scaleX: -1.0,
+                            child: Image.asset(
+                              'assets/images/race_car_side_view_null_1768514951899.png',
+                              width: carWidth,
+                              height: 60,
+                              fit: BoxFit.contain,
                             ),
                           ),
-                        ],
-                      );
-                    },
-                  ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
 
               const Divider(height: 1),
 
               // Second quarter: Text to type
-              Expanded(
-                flex: 1,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  child: Center(
-                    child: RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        style: const TextStyle(
-                            fontSize: 24, color: Colors.black, height: 1.8),
-                        children: [
-                          // Typed text (green)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
+                      style: const TextStyle(
+                          fontSize: 24, color: Colors.black, height: 1.8),
+                      children: [
+                        // Typed text (green)
+                        TextSpan(
+                          text: targetText.substring(0, currentIndex),
+                          style: TextStyle(
+                              color: Colors.green, // Changed to green for visibility
+                              fontWeight: FontWeight.w500,
+                              fontSize: baseFontSize,
+                              height: 1.8),
+                        ),
+                        // Current character (highlighted)
+                        if (currentIndex < targetText.length)
                           TextSpan(
-                            text: _targetText.substring(0, _currentIndex),
+                            text: targetText[currentIndex],
                             style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
+                              color: Colors.blue,
+                              backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                              fontWeight: FontWeight.bold,
+                              decoration: targetText[currentIndex] == ' ' ? TextDecoration.underline : null,
+                              decorationThickness: 2.0,
+                              fontSize: baseFontSize + 2,
+                              height: 1.8,
+                            ),
+                          ),
+                        // Remaining text (gray)
+                        if (currentIndex < targetText.length - 1)
+                          TextSpan(
+                            text: targetText.substring(currentIndex + 1),
+                            style: TextStyle(
+                                color: Colors.grey,
                                 fontSize: baseFontSize,
                                 height: 1.8),
                           ),
-                          // Current character (highlighted)
-                          if (_currentIndex < _targetText.length)
-                            TextSpan(
-                              text: _targetText[_currentIndex],
-                              style: TextStyle(
-                                color: Colors.blue,
-                                fontWeight: FontWeight.bold,
-                                decoration: _targetText[_currentIndex] == ' ' ? TextDecoration.underline : null,
-                                decorationThickness: 2.0,
-                                fontSize: baseFontSize + 2,
-                                height: 1.8,
-                              ),
-                            ),
-                          // Remaining text (gray)
-                          if (_currentIndex < _targetText.length - 1)
-                            TextSpan(
-                              text: _targetText.substring(_currentIndex + 1),
-                              style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: baseFontSize,
-                                  height: 1.8),
-                            ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
                 ),
@@ -234,8 +603,7 @@ class _GameScreenState extends State<GameScreen> {
 
               // Bottom half: Visual keyboard
               Expanded(
-                flex: 2,
-                child: VisualKeyboard(pressedKey: _currentPressedKey),
+                child: VisualKeyboard(pressedKey: currentPressedKey),
               ),
             ],
           ),
@@ -278,4 +646,3 @@ class CheckeredFinishLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

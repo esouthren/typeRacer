@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:typeracer/nav.dart';
+import 'package:typeracer/screens/create_game_dialog.dart';
 import 'package:typeracer/services/auth_service.dart';
+import 'package:typeracer/services/game_service.dart';
 import 'package:typeracer/widgets/button.dart';
 
 /// Landing page for TypeRacer game
@@ -34,88 +37,154 @@ class LandingScreen extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32.0),
                 child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Spacer(flex: 2),
-
-                // Game Title with racing theme
-                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    const Spacer(flex: 2),
+
+                    // Game Title with racing theme
+                    Column(
                       children: [
-               
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'TypeRacer',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .displayMedium
+                                  ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                      letterSpacing: -1.0,
+                                      fontStyle: FontStyle.italic),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
                         Text(
-                          'TypeRacer',
+                          'Type. Race. Win!',
                           style: Theme.of(context)
                               .textTheme
-                              .displayMedium
+                              .titleMedium
                               ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
-                                  letterSpacing: -1.0,
-                                  fontStyle: FontStyle.italic),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.7),
+                              ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Type. Race. Win!',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.7),
+
+                    const Spacer(flex: 2),
+
+                    // Action Buttons
+                    Column(
+                      children: [
+                        Button(
+                          label: 'Solo Mode',
+                          icon: Icons.person,
+                          onPressed: () => context.push(AppRoutes.game, extra: 'solo'),
+                        ),
+                        const SizedBox(height: 16),
+                        Button(
+                          label: 'Join Game',
+                          icon: Icons.group_add,
+                          onPressed: () => _showJoinGameDialog(context),
+                        ),
+                        const SizedBox(height: 16),
+                        Button(
+                          label: 'Create Game',
+                          icon: Icons.play_arrow,
+                          onPressed: () => showDialog(
+                            context: context,
+                            builder: (context) => const CreateGameDialog(),
                           ),
+                        ),
+                      ],
                     ),
+
+                    const Spacer(flex: 3),
                   ],
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-                const Spacer(flex: 2),
+  void _showJoinGameDialog(BuildContext context) {
+    final TextEditingController pinController = TextEditingController();
+    bool isLoading = false;
 
-                // Action Buttons
-                Column(
-                  children: [
-                    Button(
-                      label: 'Solo Mode',
-                      icon: Icons.person,
-                      onPressed: () => context.push('/game'),
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => SizedBox( 
+          width: 400,
+          child: Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Join Game',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: 400,
+                    child: TextField(
+                      controller: pinController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 24, letterSpacing: 4),
+                      decoration: const InputDecoration(
+                        hintText: 'PIN',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    Button(
-                      label: 'Join Game',
-                      icon: Icons.group_add,
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Join Game - Coming Soon!')),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    Button(
-                      label: 'Start Game',
-                      icon: Icons.play_arrow,
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text(
-                                  'Start Multiplayer Game - Coming Soon!')),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-
-                const Spacer(flex: 3),
-              ],
+                  ),
+                  const SizedBox(height: 24),
+                  isLoading
+                      ? const CircularProgressIndicator()
+                      : Button(
+                        disabled: (pinController.text.length < 5),
+                          label: 'Join',
+                          onPressed: () async {
+                            print('join!');
+                           
+                            setState(() => isLoading = true);
+                            try {
+                              final gameId = await GameService().joinGame(pinController.text);
+                              if (context.mounted) {
+                                context.pop();
+                                context.push(AppRoutes.lobby, extra: gameId);
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            } finally {
+                              if (context.mounted) setState(() => isLoading = false);
+                            }
+                          },
+                        ),
+                ],
+              ),
             ),
           ),
         ),
-      ],
-    ),
-  ),
-);
+      ),
+    );
   }
 }
 

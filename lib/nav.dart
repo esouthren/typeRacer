@@ -1,5 +1,6 @@
 import 'package:typeracer/screens/game_screen.dart';
 import 'package:typeracer/screens/landing_screen.dart';
+import 'package:typeracer/screens/lobby_screen.dart';
 import 'package:typeracer/screens/login_screen.dart';
 import 'package:typeracer/services/auth_service.dart';
 import 'package:flutter/material.dart';
@@ -41,9 +42,25 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.game,
         name: 'game',
-        pageBuilder: (context, state) => const NoTransitionPage(
-          child: GameScreen(),
-        ),
+        pageBuilder: (context, state) {
+          final gameId = state.extra as String?;
+          if (gameId == null) {
+            // Handle error or redirect
+            return const NoTransitionPage(child: LandingScreen());
+          }
+          return NoTransitionPage(
+            child: GameScreen(gameId: gameId),
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.lobby,
+        name: 'lobby',
+        pageBuilder: (context, state) {
+           final gameId = state.extra as String?;
+           if (gameId == null) return const NoTransitionPage(child: LandingScreen());
+           return NoTransitionPage(child: LobbyScreen(gameId: gameId));
+        },
       ),
     ],
   );
@@ -53,4 +70,5 @@ class AppRoutes {
   static const String landing = '/';
   static const String login = '/login';
   static const String game = '/game';
+  static const String lobby = '/lobby';
 }

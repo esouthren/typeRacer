@@ -17,26 +17,29 @@ class VisualKeyboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Keyboard rows
-          ..._keyboardLayout.map((row) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: row.map((key) => _buildKey(key)).toList(),
+    return FittedBox(
+      fit: BoxFit.contain,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Keyboard rows
+            ..._keyboardLayout.map((row) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: row.map((key) => _buildKey(key)).toList(),
+              ),
+            )),
+            
+            // Space bar row
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: _buildKey(' ', width: 300),
             ),
-          )),
-          
-          // Space bar row
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: _buildKey(' ', width: 300),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
