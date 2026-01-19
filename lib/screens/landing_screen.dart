@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:typeracer/nav.dart';
+import 'package:typeracer/services/auth_service.dart';
+import 'package:typeracer/widgets/button.dart';
 
 /// Landing page for TypeRacer game
 /// Shows the game title and three action buttons: Solo Mode, Join Game, Start Game
@@ -19,7 +21,12 @@ class LandingScreen extends StatelessWidget {
               left: 16,
               child: IconButton(
                 icon: const Icon(Icons.logout),
-                onPressed: () => context.go(AppRoutes.login),
+                onPressed: () async {
+                  await AuthService().signOut();
+                  if (context.mounted) {
+                    context.go(AppRoutes.login);
+                  }
+                },
                 tooltip: 'Logout',
               ),
             ),
@@ -53,7 +60,7 @@ class LandingScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Race to type faster!',
+                      'Type. Race. Win!',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: Theme.of(context)
                                 .colorScheme
@@ -69,14 +76,13 @@ class LandingScreen extends StatelessWidget {
                 // Action Buttons
                 Column(
                   children: [
-                    _ActionButton(
+                    Button(
                       label: 'Solo Mode',
                       icon: Icons.person,
                       onPressed: () => context.push('/game'),
-                      isPrimary: true,
                     ),
                     const SizedBox(height: 16),
-                    _ActionButton(
+                    Button(
                       label: 'Join Game',
                       icon: Icons.group_add,
                       onPressed: () {
@@ -85,10 +91,9 @@ class LandingScreen extends StatelessWidget {
                               content: Text('Join Game - Coming Soon!')),
                         );
                       },
-                      isPrimary: false,
                     ),
                     const SizedBox(height: 16),
-                    _ActionButton(
+                    Button(
                       label: 'Start Game',
                       icon: Icons.play_arrow,
                       onPressed: () {
@@ -98,7 +103,6 @@ class LandingScreen extends StatelessWidget {
                                   'Start Multiplayer Game - Coming Soon!')),
                         );
                       },
-                      isPrimary: false,
                     ),
                   ],
                 ),
@@ -115,64 +119,4 @@ class LandingScreen extends StatelessWidget {
   }
 }
 
-/// Custom action button component for landing page
-class _ActionButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onPressed;
-  final bool isPrimary;
 
-  const _ActionButton({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-    required this.isPrimary,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 60,
-      child: isPrimary
-          ? FilledButton.icon(
-              onPressed: onPressed,
-              icon: Icon(icon, color: Theme.of(context).colorScheme.onPrimary),
-              label: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onPrimary,
-                ),
-              ),
-              style: FilledButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            )
-          : OutlinedButton.icon(
-              onPressed: onPressed,
-              icon: Icon(icon, color: Theme.of(context).colorScheme.primary),
-              label: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline,
-                  width: 1.5,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-    );
-  }
-}

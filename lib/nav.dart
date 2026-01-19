@@ -1,12 +1,28 @@
 import 'package:typeracer/screens/game_screen.dart';
 import 'package:typeracer/screens/landing_screen.dart';
 import 'package:typeracer/screens/login_screen.dart';
+import 'package:typeracer/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
-    initialLocation: AppRoutes.login,
+    initialLocation: AppRoutes.landing,
+    refreshListenable: AuthService(),
+    redirect: (context, state) {
+      final isLoggedIn = AuthService().currentUser != null;
+      final isLoggingIn = state.matchedLocation == AppRoutes.login;
+
+      if (!isLoggedIn) {
+        return isLoggingIn ? null : AppRoutes.login;
+      }
+
+      if (isLoggingIn) {
+        return AppRoutes.landing;
+      }
+
+      return null;
+    },
     routes: [
       GoRoute(
         path: AppRoutes.landing,
