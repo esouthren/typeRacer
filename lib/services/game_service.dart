@@ -11,7 +11,7 @@ class GameService {
   final AuthService _authService = AuthService();
 
   // Create a new game
-  Future<String> createGame(List<String> categories) async {
+  Future<String> createGame(List<String> categories, String displayName, int selectedCarIndex) async {
     final user = _authService.currentUser;
     if (user == null) throw Exception('Must be logged in to create a game');
 
@@ -50,9 +50,10 @@ class GameService {
       players: [
         GamePlayer(
           id: user.uid,
-          displayName: user.displayName ?? 'Host',
+          displayName: displayName.isNotEmpty ? displayName : (user.displayName ?? 'Host'),
           photoUrl: user.photoURL,
-          isReady: true, // Host is always ready? Or require explicit ready? Let's say ready.
+          isReady: true, // Host is always ready
+          selectedCarIndex: selectedCarIndex,
         )
       ],
       scores: {user.uid: 0},
@@ -63,7 +64,7 @@ class GameService {
   }
 
   // Join a game
-  Future<String> joinGame(String pin) async {
+  Future<String> joinGame(String pin, String displayName, int selectedCarIndex) async {
     final user = _authService.currentUser;
     if (user == null) throw Exception('Must be logged in to join a game');
 
@@ -96,8 +97,9 @@ class GameService {
     // Add user to players
     final newPlayer = GamePlayer(
       id: user.uid,
-      displayName: user.displayName ?? 'Player',
+      displayName: displayName.isNotEmpty ? displayName : (user.displayName ?? 'Player'),
       photoUrl: user.photoURL,
+      selectedCarIndex: selectedCarIndex,
     );
 
     final updatedPlayers = [...game.players, newPlayer];

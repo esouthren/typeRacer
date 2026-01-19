@@ -120,6 +120,7 @@ class GamePlayer {
   final String? photoUrl;
   final bool isReady;
   final double currentProgress; // 0.0 to 1.0, for showing cars moving
+  final int selectedCarIndex;
 
   GamePlayer({
     required this.id,
@@ -127,6 +128,7 @@ class GamePlayer {
     this.photoUrl,
     this.isReady = false,
     this.currentProgress = 0.0,
+    this.selectedCarIndex = 0,
   });
 
   factory GamePlayer.fromJson(Map<String, dynamic> json) {
@@ -136,6 +138,7 @@ class GamePlayer {
       photoUrl: json['photo_url'] as String?,
       isReady: json['is_ready'] as bool? ?? false,
       currentProgress: (json['current_progress'] as num?)?.toDouble() ?? 0.0,
+      selectedCarIndex: json['selected_car_index'] as int? ?? 0,
     );
   }
 
@@ -146,6 +149,7 @@ class GamePlayer {
       'photo_url': photoUrl,
       'is_ready': isReady,
       'current_progress': currentProgress,
+      'selected_car_index': selectedCarIndex,
     };
   }
   
@@ -155,6 +159,7 @@ class GamePlayer {
     String? photoUrl,
     bool? isReady,
     double? currentProgress,
+    int? selectedCarIndex,
   }) {
     return GamePlayer(
       id: id ?? this.id,
@@ -162,6 +167,7 @@ class GamePlayer {
       photoUrl: photoUrl ?? this.photoUrl,
       isReady: isReady ?? this.isReady,
       currentProgress: currentProgress ?? this.currentProgress,
+      selectedCarIndex: selectedCarIndex ?? this.selectedCarIndex,
     );
   }
 }

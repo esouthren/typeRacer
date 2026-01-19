@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:typeracer/constants/car_assets.dart';
 import 'package:typeracer/models/game_model.dart';
 import 'package:typeracer/nav.dart';
 import 'package:typeracer/services/auth_service.dart';
@@ -454,6 +455,11 @@ class RaceInterface extends StatelessWidget {
   Widget build(BuildContext context) {
     final baseFontSize = 24.0;
     
+    // Default solo player if none provided
+    final activePlayers = players ?? [
+      GamePlayer(id: 'me', displayName: 'You', isReady: true, selectedCarIndex: 0)
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
@@ -465,86 +471,16 @@ class RaceInterface extends StatelessWidget {
           onTap: () => focusNode.requestFocus(),
           child: Column(
             children: [
-              // Top quarter: Racecar progress indicator
+              // Top quarter: Multi-Track Race View
               Container(
-                height: 150,
+                height: MediaQuery.of(context).size.height / 3, // Fixed height: 1/3 screen
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 color: Theme.of(context).colorScheme.onSurface,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    // Calculate progress (0.0 to 1.0)
-                    final progress = targetText.isEmpty
-                        ? 0.0
-                        : currentIndex / targetText.length;
-                    
-                    final carWidth = 80.0;
-                    final startPosition = 120.0;
-                    final finishLineWidth = 21.0;
-                    final endPosition = constraints.maxWidth - finishLineWidth - carWidth;
-                    final carPosition = startPosition + (progress * (endPosition - startPosition));
-
-                    return Stack(
-                      children: [
-                        // Checkered finish line (right side)
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          bottom: 0,
-                          child: CustomPaint(
-                            size: Size(finishLineWidth, constraints.maxHeight),
-                            painter: CheckeredFinishLinePainter(),
-                          ),
-                        ),
-
-                        // Current Player Name & Score
-                        Positioned(
-                          left: 0,
-                          bottom: constraints.maxHeight / 2,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'You',
-                                style: TextStyle(
-                                  color: Colors.white, // Inverted on dark bg
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Track line
-                        Positioned(
-                          left: 0,
-                          right: finishLineWidth,
-                          top: constraints.maxHeight / 2,
-                          child: Container(
-                            height: 4,
-                            color: Colors.grey[400],
-                          ),
-                        ),
-
-                        // Racecar
-                        Positioned(
-                          left: carPosition,
-                          top: constraints.maxHeight / 2 - 30,
-                          child: Transform.scale(
-                            scaleX: -1.0,
-                            child: Image.asset(
-                              'assets/images/race_car_side_view_null_1768514951899.png',
-                              width: carWidth,
-                              height: 60,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                child: MultiTrackView(
+                  players: activePlayers,
+                  targetTextLength: targetText.length,
+                  localCurrentIndex: currentIndex,
                 ),
               ),
 
@@ -609,6 +545,148 @@ class RaceInterface extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class MultiTrackView extends StatelessWidget {
+  final List<GamePlayer> players;
+  final int targetTextLength;
+  final int localCurrentIndex;
+
+  const MultiTrackView({
+    super.key,
+    required this.players,
+    required this.targetTextLength,
+    required this.localCurrentIndex,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalHeight = constraints.maxHeight;
+        final totalWidth = constraints.maxWidth;
+        final finishLineWidth = 20.0;
+        final carWidth = 60.0;
+        
+        // Calculate max tracks we can fit comfortably
+        final minTrackHeight = 60.0;
+        final maxPossibleTracks = (totalHeight / minTrackHeight).floor();
+        
+        // Determine how many visual tracks we'll have
+        final numVisualTracks = players.length <= maxPossibleTracks 
+            ? players.length 
+            : maxPossibleTracks;
+        
+        // Actual height per track
+        final trackHeight = totalHeight / numVisualTracks;
+
+        return Stack(
+          children: [
+            // Draw tracks
+            for (int i = 0; i < numVisualTracks; i++)
+              Positioned(
+                top: i * trackHeight,
+                left: 0,
+                right: 0,
+                height: trackHeight,
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      // Track line
+                      Positioned(
+                        left: 0,
+                        right: finishLineWidth,
+                        child: Container(height: 2, color: Colors.grey[700]),
+                      ),
+                      // Finish line segment
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: finishLineWidth,
+                        child: CustomPaint(painter: CheckeredFinishLinePainter()),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Draw cars
+            ...players.asMap().entries.map((entry) {
+              final index = entry.key;
+              final player = entry.value;
+              
+              // Determine which track this player belongs to
+              // If we have fewer tracks than players, we distribute them modulo style
+              final trackIndex = index % numVisualTracks;
+              
+              // Calculate progress
+              double progress = player.currentProgress;
+              
+              final isLocal = player.id == AuthService().currentUser?.uid || player.id == 'me';
+              if (isLocal && targetTextLength > 0) {
+                progress = localCurrentIndex / targetTextLength;
+              }
+
+              final startX = 0.0;
+              final endX = totalWidth - finishLineWidth - carWidth;
+              final carX = startX + (progress * (endX - startX));
+              
+              // Vertical position: Centered in their assigned track
+              // If multiple cars on one track, offset them slightly?
+              // Prompt: "overlap them and have multiple cars on each track"
+              // Let's stagger them vertically within the track if they share it.
+              
+              double verticalOffset = 0;
+              if (players.length > numVisualTracks) {
+                 // 0, 1, 2 sharing track 0? No, modulo.
+                 // If players 0 and 3 share track 0.
+                 // 0 is at top, 3 is slightly lower.
+                 final shareIndex = index ~/ numVisualTracks;
+                 verticalOffset = shareIndex * 10.0; 
+              }
+
+              final topY = (trackIndex * trackHeight) + (trackHeight / 2) - 20 + verticalOffset;
+
+              return Positioned(
+                left: carX,
+                top: topY,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      player.displayName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+                      ),
+                    ),
+                    Transform.scale(
+                      scaleX: -1.0,
+                      child: Image.asset(
+                        CarAssets.cars[player.selectedCarIndex % CarAssets.cars.length],
+                        width: carWidth,
+                        height: 30,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        );
+      },
     );
   }
 }

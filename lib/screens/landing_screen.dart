@@ -6,6 +6,7 @@ import 'package:typeracer/screens/create_game_dialog.dart';
 import 'package:typeracer/services/auth_service.dart';
 import 'package:typeracer/services/game_service.dart';
 import 'package:typeracer/widgets/button.dart';
+import 'package:typeracer/widgets/car_selection_widget.dart';
 
 /// Landing page for TypeRacer game
 /// Shows the game title and three action buttons: Solo Mode, Join Game, Start Game
@@ -119,66 +120,82 @@ class LandingScreen extends StatelessWidget {
   void _showJoinGameDialog(BuildContext context) {
     final TextEditingController pinController = TextEditingController();
     bool isLoading = false;
+    int selectedCarIndex = 0;
+    String displayName = '';
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => SizedBox( 
-          width: 400,
-          child: Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Join Game',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: 400,
-                    child: TextField(
+        builder: (context, setState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: SizedBox(
+              width: 700, // Wider for car selection
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Join Game',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
                       controller: pinController,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       textAlign: TextAlign.center,
+                      onChanged: (value) => setState(() {}),
                       style: const TextStyle(fontSize: 24, letterSpacing: 4),
                       decoration: const InputDecoration(
-                        hintText: 'PIN',
+                        labelText: 'Game PIN',
+                        hintText: '12345',
                         border: OutlineInputBorder(),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  isLoading
-                      ? const CircularProgressIndicator()
-                      : Button(
-                        disabled: (pinController.text.length < 5),
-                          label: 'Join',
-                          onPressed: () async {
-                            print('join!');
-                           
-                            setState(() => isLoading = true);
-                            try {
-                              final gameId = await GameService().joinGame(pinController.text);
-                              if (context.mounted) {
-                                context.pop();
-                                context.push(AppRoutes.lobby, extra: gameId);
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error: $e')),
+                    const SizedBox(height: 16),
+                    
+                    CarSelectionWidget(
+                      crossAxisCount: 6,
+                      onCarSelected: (index) => selectedCarIndex = index,
+                      onNameChanged: (name) {
+                        displayName = name;
+                        setState(() {});
+                      },
+                    ),
+
+                    const SizedBox(height: 24),
+                    isLoading
+                        ? const CircularProgressIndicator()
+                        : Button(
+                            disabled: (pinController.text.length < 5 || displayName.trim().isEmpty),
+                            label: 'Join Game',
+                            onPressed: () async {
+                              setState(() => isLoading = true);
+                              try {
+                                final gameId = await GameService().joinGame(
+                                  pinController.text,
+                                  displayName,
+                                  selectedCarIndex,
                                 );
+                                if (context.mounted) {
+                                  context.pop();
+                                  context.push(AppRoutes.lobby, extra: gameId);
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Error: $e')),
+                                  );
+                                }
+                              } finally {
+                                if (context.mounted) setState(() => isLoading = false);
                               }
-                            } finally {
-                              if (context.mounted) setState(() => isLoading = false);
-                            }
-                          },
-                        ),
-                ],
+                            },
+                          ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -187,5 +204,3 @@ class LandingScreen extends StatelessWidget {
     );
   }
 }
-
-
