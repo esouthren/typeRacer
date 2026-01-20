@@ -24,7 +24,7 @@ class LandingScreen extends StatelessWidget {
               top: 16,
               left: 16,
               child: IconButton(
-                icon: const Icon(Icons.logout),
+                icon: Image.asset('assets/images/logout.png', width: 48, height: 48),
                 onPressed: () async {
                   await AuthService().signOut();
                   if (context.mounted) {
@@ -75,6 +75,7 @@ class LandingScreen extends StatelessWidget {
 
                           onPressed: () => showDialog(
                             context: context,
+                            barrierDismissible: false,
                             builder: (context) => const CreateGameDialog(),
                           ),
                         ),

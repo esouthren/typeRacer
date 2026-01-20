@@ -46,7 +46,7 @@ class _CarSelectionWidgetState extends State<CarSelectionWidget> {
         TextField(
           controller: _nameController,
           decoration: const InputDecoration(
-            labelText: 'Display Name',
+            labelText: 'Your Name',
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.person),
           ),
@@ -54,7 +54,7 @@ class _CarSelectionWidgetState extends State<CarSelectionWidget> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Select Your Vehicle',
+          'Select Vehicle',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),

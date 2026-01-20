@@ -335,18 +335,37 @@ class CountdownOverlay extends StatefulWidget {
 class _CountdownOverlayState extends State<CountdownOverlay> {
   late Timer _timer;
   int _secondsLeft = 0;
+  double _opacity = 1.0;
+  late final int _initialDurationMs;
 
   @override
   void initState() {
     super.initState();
+    final diff = widget.startTime.difference(DateTime.now());
+    _initialDurationMs = diff.inMilliseconds;
     _updateTime();
-    _timer = Timer.periodic(const Duration(milliseconds: 100), (_) => _updateTime());
+    _timer = Timer.periodic(const Duration(milliseconds: 16), (_) => _updateTime());
   }
   
   void _updateTime() {
-    final diff = widget.startTime.difference(DateTime.now()).inSeconds;
-    if (diff != _secondsLeft) {
-      setState(() => _secondsLeft = diff + 1); // +1 to show 3-2-1 properly
+    final now = DateTime.now();
+    final diff = widget.startTime.difference(now);
+    final msRemaining = diff.inMilliseconds;
+    
+    // Update opacity
+    double newOpacity = 0.0;
+    if (_initialDurationMs > 0) {
+      newOpacity = (msRemaining / _initialDurationMs).clamp(0.0, 1.0);
+    }
+    
+    // Update seconds
+    final newSeconds = diff.inSeconds + 1;
+
+    if (newSeconds != _secondsLeft || _opacity != newOpacity) {
+      setState(() {
+        _secondsLeft = newSeconds;
+        _opacity = newOpacity;
+      });
     }
   }
 
@@ -361,7 +380,7 @@ class _CountdownOverlayState extends State<CountdownOverlay> {
     if (_secondsLeft <= 0) return const SizedBox.shrink();
     
     return Container(
-      color: Colors.black45,
+      color: Colors.black.withValues(alpha: _opacity),
       child: Center(
         child: Text(
           '$_secondsLeft',
@@ -476,7 +495,9 @@ class RaceInterface extends StatelessWidget {
                 height: MediaQuery.of(context).size.height / 3, // Fixed height: 1/3 screen
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                color: Theme.of(context).colorScheme.onSurface,
+                // Dark grey background for the container to match road
+                // The road itself is drawn inside MultiTrackView
+                color: Colors.transparent, // Let MultiTrackView handle background
                 child: MultiTrackView(
                   players: activePlayers,
                   targetTextLength: targetText.length,
@@ -490,6 +511,7 @@ class RaceInterface extends StatelessWidget {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
+                color: Colors.white,
                 child: Center(
                   child: RichText(
                     textAlign: TextAlign.center,
@@ -525,7 +547,7 @@ class RaceInterface extends StatelessWidget {
                           TextSpan(
                             text: targetText.substring(currentIndex + 1),
                             style: TextStyle(
-                                color: Colors.grey,
+                                color: Colors.black,
                                 fontSize: baseFontSize,
                                 height: 1.8),
                           ),
@@ -568,6 +590,7 @@ class MultiTrackView extends StatelessWidget {
         final totalHeight = constraints.maxHeight;
         final totalWidth = constraints.maxWidth;
         final finishLineWidth = 20.0;
+        final startLineWidth = 20.0;
         final carWidth = 60.0;
         
         // Calculate max tracks we can fit comfortably
@@ -578,111 +601,143 @@ class MultiTrackView extends StatelessWidget {
         final numVisualTracks = players.length <= maxPossibleTracks 
             ? players.length 
             : maxPossibleTracks;
+            
+        // Ensure at least 1 track
+        final actualNumTracks = numVisualTracks > 0 ? numVisualTracks : 1;
         
         // Actual height per track
-        final trackHeight = totalHeight / numVisualTracks;
+        final trackHeight = totalHeight / actualNumTracks;
+        
+        // Use a single skew transform for the whole road
+        // -0.4 radians gives a nice / slant
+        final skewAngle = -0.4; 
+        
+        // We need to inset the road content horizontally so the skew doesn't clip
+        // When skewed by a, the top moves by H * tan(a/2)? No.
+        // x' = x + y*tan(a)
+        // At y=H (bottom), the x shift is H * tan(a)
+        // With a = -0.4, shift is negative (to left)
+        // So bottom is left of top.
+        // We need to ensure we have padding on left and right.
+        
+        final double horizontalPadding = 40.0;
+        final double roadWidth = totalWidth - (horizontalPadding * 2);
 
-        return Stack(
-          children: [
-            // Draw tracks
-            for (int i = 0; i < numVisualTracks; i++)
-              Positioned(
-                top: i * trackHeight,
-                left: 0,
-                right: 0,
-                height: trackHeight,
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-                    ),
+        return Center(
+          child: Container(
+            width: roadWidth,
+            height: totalHeight,
+            // Wrap the whole road in a skew transform
+            child: Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.skewX(skewAngle),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[800],
+                  border: Border.symmetric(
+                    vertical: BorderSide(color: Colors.white.withValues(alpha: 0.5), width: 4),
                   ),
-                  child: Stack(
-                    alignment: Alignment.centerLeft,
-                    children: [
-                      // Track line
-                      Positioned(
-                        left: 0,
-                        right: finishLineWidth,
-                        child: Container(height: 2, color: Colors.grey[700]),
-                      ),
-                      // Finish line segment
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: finishLineWidth,
-                        child: CustomPaint(painter: CheckeredFinishLinePainter()),
-                      ),
-                    ],
-                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(5, 5),
+                    )
+                  ]
                 ),
-              ),
-
-            // Draw cars
-            ...players.asMap().entries.map((entry) {
-              final index = entry.key;
-              final player = entry.value;
-              
-              // Determine which track this player belongs to
-              // If we have fewer tracks than players, we distribute them modulo style
-              final trackIndex = index % numVisualTracks;
-              
-              // Calculate progress
-              double progress = player.currentProgress;
-              
-              final isLocal = player.id == AuthService().currentUser?.uid || player.id == 'me';
-              if (isLocal && targetTextLength > 0) {
-                progress = localCurrentIndex / targetTextLength;
-              }
-
-              final startX = 0.0;
-              final endX = totalWidth - finishLineWidth - carWidth;
-              final carX = startX + (progress * (endX - startX));
-              
-              // Vertical position: Centered in their assigned track
-              // If multiple cars on one track, offset them slightly?
-              // Prompt: "overlap them and have multiple cars on each track"
-              // Let's stagger them vertically within the track if they share it.
-              
-              double verticalOffset = 0;
-              if (players.length > numVisualTracks) {
-                 // 0, 1, 2 sharing track 0? No, modulo.
-                 // If players 0 and 3 share track 0.
-                 // 0 is at top, 3 is slightly lower.
-                 final shareIndex = index ~/ numVisualTracks;
-                 verticalOffset = shareIndex * 10.0; 
-              }
-
-              final topY = (trackIndex * trackHeight) + (trackHeight / 2) - 20 + verticalOffset;
-
-              return Positioned(
-                left: carX,
-                top: topY,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                child: Stack(
                   children: [
-                    Text(
-                      player.displayName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+                    // Start Line (Checkered)
+                     Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: startLineWidth,
+                      child: CustomPaint(painter: CheckeredFinishLinePainter()),
+                    ),
+                    
+                    // Finish Line (Checkered)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: finishLineWidth,
+                      child: CustomPaint(painter: CheckeredFinishLinePainter()),
+                    ),
+
+                    // Draw dividers
+                    for (int i = 1; i < actualNumTracks; i++)
+                      Positioned(
+                        top: i * trackHeight,
+                        left: 0,
+                        right: 0,
+                        height: 2,
+                        child: Container(color: Colors.white.withValues(alpha: 0.3)),
                       ),
-                    ),
-                   Image.asset(
-                        CarAssets.cars[player.selectedCarIndex % CarAssets.cars.length],
-                        width: carWidth,
-                        height: 30,
-                        fit: BoxFit.contain,
+
+                    // Draw cars
+                    ...players.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final player = entry.value;
                       
-                    ),
+                      final trackIndex = index % actualNumTracks;
+                      
+                      // Calculate progress
+                      double progress = player.currentProgress;
+                      final isLocal = player.id == AuthService().currentUser?.uid || player.id == 'me';
+                      if (isLocal && targetTextLength > 0) {
+                        progress = localCurrentIndex / targetTextLength;
+                      }
+                      
+                      // Car positioning inside the skewed container
+                      // X is 0 to roadWidth
+                      // But we have start and finish lines
+                      final trackRun = roadWidth - startLineWidth - finishLineWidth - carWidth;
+                      final carX = startLineWidth + (progress * trackRun);
+                      
+                      // Vertical offset if sharing track
+                      double verticalOffset = 0;
+                      if (players.length > actualNumTracks) {
+                         final shareIndex = index ~/ actualNumTracks;
+                         verticalOffset = shareIndex * 10.0; 
+                      }
+
+                      final topY = (trackIndex * trackHeight) + (trackHeight / 2) - 15 + verticalOffset;
+
+                      return Positioned(
+                        left: carX,
+                        top: topY,
+                        child: Transform(
+                          // Counter-skew the car so it looks upright!
+                          transform: Matrix4.skewX(-skewAngle),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                player.displayName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+                                ),
+                              ),
+                              Image.asset(
+                                CarAssets.cars[player.selectedCarIndex % CarAssets.cars.length],
+                                width: carWidth,
+                                height: 30,
+                                fit: BoxFit.contain,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
                   ],
                 ),
-              );
-            }),
-          ],
+              ),
+            ),
+          ),
         );
       },
     );

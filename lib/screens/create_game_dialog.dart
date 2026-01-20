@@ -75,92 +75,109 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: SizedBox(
-          width: 1000, // Wider for two-column layout
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Left Column: Identity
-                    Expanded(
-                      child: CarSelectionWidget(
-                        crossAxisCount: 6,
-                        onCarSelected: (index) => setState(() => _selectedCarIndex = index),
-                        onNameChanged: (name) => setState(() => _displayName = name),
-                      ),
-                    ),
-                    const SizedBox(width: 32),
-                    // Right Column: Categories
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Round Categories',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                          Text(
-                            'Game Duration: ~$_estimatedMinutes minute${_estimatedMinutes == 1 ? '' : 's'}',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                            textAlign: TextAlign.center,
-                          ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            constraints: const BoxConstraints(maxHeight: 270), // Match approx height of left column
-                            child: ListView(
-                              shrinkWrap: true,
-                              children: GameTexts.categories.map((category) {
-                                return CheckboxListTile(
-                                  title: Text(category),
-                                  value: _selectedCategories[category],
-                                  onChanged: (val) {
-                                    setState(() {
-                                      _selectedCategories[category] = val ?? false;
-                                    });
-                                  },
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                    
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : SizedBox(
-                        width: 300,
-                        child: Button(
-                          buttonColor: ButtonColor.secondary,
-                          label: 'Create Game',
-                          onPressed: _createGame,
-                        ),
-                      ),
-              ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 8, right: 8),
+            child: IconButton(
+              icon: Image.asset(
+                'assets/images/delete.png',
+                width: 32,
+                height: 32,
+              ),
+              onPressed: () => context.pop(),
             ),
           ),
-        ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: SizedBox(
+              width: 1000, // Wider for two-column layout
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Left Column: Identity
+                        Expanded(
+                          child: CarSelectionWidget(
+                            crossAxisCount: 6,
+                            onCarSelected: (index) => setState(() => _selectedCarIndex = index),
+                            onNameChanged: (name) => setState(() => _displayName = name),
+                          ),
+                        ),
+                        const SizedBox(width: 32),
+                        // Right Column: Categories
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Round Categories',
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                  Text(
+                                    'Game Duration: ~$_estimatedMinutes minute${_estimatedMinutes == 1 ? '' : 's'}',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(context).colorScheme.primary,
+                                        ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                constraints: const BoxConstraints(maxHeight: 270), // Match approx height of left column
+                                child: ListView(
+                                  shrinkWrap: true,
+                                  children: GameTexts.categories.map((category) {
+                                    return CheckboxListTile(
+                                      title: Text(category),
+                                      value: _selectedCategories[category],
+                                      onChanged: (val) {
+                                        setState(() {
+                                          _selectedCategories[category] = val ?? false;
+                                        });
+                                      },
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                        
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : SizedBox(
+                            width: 300,
+                            child: Button(
+                              buttonColor: ButtonColor.secondary,
+                              label: 'Create Game',
+                              onPressed: _createGame,
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
