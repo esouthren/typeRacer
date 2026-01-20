@@ -20,9 +20,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'TypeRacer',
       debugShowCheckedModeBanner: false,
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      themeMode: ThemeMode.system,
+      theme: darkTheme,
+      themeMode: ThemeMode.dark,
       routerConfig: AppRouter.router,
     );
   }

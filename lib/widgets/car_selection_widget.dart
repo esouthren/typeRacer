@@ -54,7 +54,7 @@ class _CarSelectionWidgetState extends State<CarSelectionWidget> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Select Your Car',
+          'Select Your Vehicle',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),

@@ -3,6 +3,7 @@ import 'package:typeracer/screens/landing_screen.dart';
 import 'package:typeracer/screens/lobby_screen.dart';
 import 'package:typeracer/screens/login_screen.dart';
 import 'package:typeracer/services/auth_service.dart';
+import 'package:typeracer/widgets/checkered_background.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -25,42 +26,49 @@ class AppRouter {
       return null;
     },
     routes: [
-      GoRoute(
-        path: AppRoutes.landing,
-        name: 'landing',
-        pageBuilder: (context, state) => const NoTransitionPage(
-          child: LandingScreen(),
-        ),
-      ),
-      GoRoute(
-        path: AppRoutes.login,
-        name: 'login',
-        pageBuilder: (context, state) => const NoTransitionPage(
-          child: LoginScreen(),
-        ),
-      ),
-      GoRoute(
-        path: AppRoutes.game,
-        name: 'game',
-        pageBuilder: (context, state) {
-          final gameId = state.extra as String?;
-          if (gameId == null) {
-            // Handle error or redirect
-            return const NoTransitionPage(child: LandingScreen());
-          }
-          return NoTransitionPage(
-            child: GameScreen(gameId: gameId),
-          );
+      ShellRoute(
+        builder: (context, state, child) {
+          return CheckeredBackground(child: child);
         },
-      ),
-      GoRoute(
-        path: AppRoutes.lobby,
-        name: 'lobby',
-        pageBuilder: (context, state) {
-           final gameId = state.extra as String?;
-           if (gameId == null) return const NoTransitionPage(child: LandingScreen());
-           return NoTransitionPage(child: LobbyScreen(gameId: gameId));
-        },
+        routes: [
+          GoRoute(
+            path: AppRoutes.landing,
+            name: 'landing',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: LandingScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.login,
+            name: 'login',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: LoginScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.game,
+            name: 'game',
+            pageBuilder: (context, state) {
+              final gameId = state.extra as String?;
+              if (gameId == null) {
+                // Handle error or redirect
+                return const NoTransitionPage(child: LandingScreen());
+              }
+              return NoTransitionPage(
+                child: GameScreen(gameId: gameId),
+              );
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.lobby,
+            name: 'lobby',
+            pageBuilder: (context, state) {
+               final gameId = state.extra as String?;
+               if (gameId == null) return const NoTransitionPage(child: LandingScreen());
+               return NoTransitionPage(child: LobbyScreen(gameId: gameId));
+            },
+          ),
+        ],
       ),
     ],
   );

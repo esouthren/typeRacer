@@ -45,36 +45,11 @@ class LandingScreen extends StatelessWidget {
                     // Game Title with racing theme
                     Column(
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'TypeRacer',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .displayMedium
-                                  ?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                      letterSpacing: -1.0,
-                                      fontStyle: FontStyle.italic),
-                            ),
-                          ],
+                        Image.asset(
+                          'assets/images/header-Photoroom.png',
+                          height: 200,
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Type. Race. Win!',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.7),
-                              ),
-                        ),
+                        
                       ],
                     ),
 
@@ -85,19 +60,19 @@ class LandingScreen extends StatelessWidget {
                       children: [
                         Button(
                           label: 'Solo Mode',
-                          icon: Icons.person,
                           onPressed: () => context.push(AppRoutes.game, extra: 'solo'),
                         ),
                         const SizedBox(height: 16),
                         Button(
                           label: 'Join Game',
-                          icon: Icons.group_add,
                           onPressed: () => _showJoinGameDialog(context),
+                          buttonColor: ButtonColor.secondary,
                         ),
                         const SizedBox(height: 16),
                         Button(
                           label: 'Create Game',
-                          icon: Icons.play_arrow,
+                                                    buttonColor: ButtonColor.onSecondary,
+
                           onPressed: () => showDialog(
                             context: context,
                             builder: (context) => const CreateGameDialog(),
@@ -127,7 +102,6 @@ class LandingScreen extends StatelessWidget {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: SizedBox(

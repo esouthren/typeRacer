@@ -4,7 +4,6 @@ import 'package:typeracer/nav.dart';
 import 'package:typeracer/services/auth_service.dart';
 import 'package:typeracer/widgets/button.dart';
 
-
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
@@ -23,32 +22,9 @@ class LoginScreen extends StatelessWidget {
                 // Game Title with racing theme (Reused from LandingScreen)
                 Column(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'TypeRacer',
-                          style: Theme.of(context)
-                              .textTheme
-                              .displayMedium
-                              ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
-                                  letterSpacing: -1.0,
-                                  fontStyle: FontStyle.italic),
-                        ),
-                      ],
-                    ),
+                    Image.asset('assets/images/header-Photoroom.png',
+                        height: 200),
                     const SizedBox(height: 12),
-                    Text(
-                      'Type. Race. Win!',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.7),
-                          ),
-                    ),
                   ],
                 ),
 
@@ -83,4 +59,3 @@ class LoginScreen extends StatelessWidget {
     );
   }
 }
-

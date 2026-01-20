@@ -75,7 +75,6 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: SizedBox(
@@ -84,12 +83,7 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Create Game',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
+
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -107,9 +101,22 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Round Categories',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
                           Text(
-                            'Select Categories',
-                            style: Theme.of(context).textTheme.titleMedium,
+                            'Game Duration: ~$_estimatedMinutes minute${_estimatedMinutes == 1 ? '' : 's'}',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                            textAlign: TextAlign.center,
+                          ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           Container(
@@ -133,15 +140,7 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
                               }).toList(),
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Estimated Game Duration: $_estimatedMinutes minute${_estimatedMinutes == 1 ? '' : 's'}',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                            textAlign: TextAlign.center,
-                          ),
+                    
                         ],
                       ),
                     ),
@@ -151,8 +150,9 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : SizedBox(
-                        width: 200,
+                        width: 300,
                         child: Button(
+                          buttonColor: ButtonColor.secondary,
                           label: 'Create Game',
                           onPressed: _createGame,
                         ),

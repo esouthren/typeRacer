@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Custom action button component (Duplicated from LandingScreen for independence)
 enum ButtonType { filled, outlined }
+enum ButtonColor {primary, onPrimary, secondary, onSecondary}
 
 class Button extends StatelessWidget {
   final String label;
@@ -10,6 +12,7 @@ class Button extends StatelessWidget {
   final ButtonType? type;
   final double width;
   final bool disabled;
+  final ButtonColor buttonColor;
 
   const Button({
     super.key,
@@ -19,6 +22,7 @@ class Button extends StatelessWidget {
     this.type = ButtonType.filled,
     this.width = 300.0,
     this.disabled = false,
+    this.buttonColor = ButtonColor.onPrimary,
   });
 
   @override
@@ -28,15 +32,34 @@ class Button extends StatelessWidget {
     // Helper to get text widget
     Widget buildText() => Text(
           label,
-          style: const TextStyle(
-            fontSize: 18,
+          style: GoogleFonts.pressStart2p(
+            fontSize: 16, // Adjusted size for better fit with pixel font
             fontWeight: FontWeight.w600,
           ),
         );
 
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
+    const shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.zero,
     );
+    
+    const borderSide = BorderSide(
+      color: Colors.black,
+      width: 5.0,
+    );
+
+    final backgroundColor = switch (buttonColor) {
+      ButtonColor.primary => colorScheme.primary,
+      ButtonColor.onPrimary => colorScheme.onPrimary,
+      ButtonColor.secondary => colorScheme.secondary,
+      ButtonColor.onSecondary => colorScheme.onSecondary,
+    };
+
+    final foregroundColor = switch (buttonColor) {
+      ButtonColor.primary => Colors.white,
+      ButtonColor.onPrimary => colorScheme.onPrimaryContainer,
+      ButtonColor.secondary => colorScheme.onSecondary,
+      ButtonColor.onSecondary => colorScheme.secondary,
+    };
 
     return SizedBox(
       width: width,
@@ -48,8 +71,10 @@ class Button extends StatelessWidget {
               label: buildText(),
               style: FilledButton.styleFrom(
                 shape: shape,
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.onPrimary,
+                side: borderSide,
+                elevation: 0,
+                backgroundColor: backgroundColor,
+                foregroundColor: foregroundColor,
                 disabledBackgroundColor:
                     colorScheme.primary.withValues(alpha: 0.5),
                 disabledForegroundColor:
@@ -62,15 +87,11 @@ class Button extends StatelessWidget {
               label: buildText(),
               style: OutlinedButton.styleFrom(
                 shape: shape,
-                foregroundColor: colorScheme.primary,
+                side: borderSide,
+                elevation: 0,
+                foregroundColor: backgroundColor,
                 disabledForegroundColor:
                     colorScheme.primary.withValues(alpha: 0.5),
-                side: BorderSide(
-                  color: disabled
-                      ? colorScheme.outline.withValues(alpha: 0.3)
-                      : colorScheme.outline,
-                  width: 1.5,
-                ),
               ),
             ),
     );

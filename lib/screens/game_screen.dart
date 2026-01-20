@@ -671,14 +671,12 @@ class MultiTrackView extends StatelessWidget {
                         shadows: [Shadow(color: Colors.black, blurRadius: 2)],
                       ),
                     ),
-                    Transform.scale(
-                      scaleX: -1.0,
-                      child: Image.asset(
+                   Image.asset(
                         CarAssets.cars[player.selectedCarIndex % CarAssets.cars.length],
                         width: carWidth,
                         height: 30,
                         fit: BoxFit.contain,
-                      ),
+                      
                     ),
                   ],
                 ),
