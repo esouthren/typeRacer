@@ -33,7 +33,6 @@ class LoginScreen extends StatelessWidget {
                 // Login Button
                 Button(
                   label: 'Log in with Google',
-                  icon: Icons.login, // Placeholder for Google icon
                   onPressed: () async {
                     try {
                       final user = await AuthService().signInWithGoogle();
@@ -48,6 +47,7 @@ class LoginScreen extends StatelessWidget {
                       }
                     }
                   },
+                  width: 350,
                 ),
 
                 const Spacer(flex: 3),

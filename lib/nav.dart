@@ -2,6 +2,7 @@ import 'package:typeracer/screens/game_screen.dart';
 import 'package:typeracer/screens/landing_screen.dart';
 import 'package:typeracer/screens/lobby_screen.dart';
 import 'package:typeracer/screens/login_screen.dart';
+import 'package:typeracer/screens/testing_screen.dart';
 import 'package:typeracer/services/auth_service.dart';
 import 'package:typeracer/widgets/checkered_background.dart';
 import 'package:flutter/material.dart';
@@ -68,6 +69,13 @@ class AppRouter {
                return NoTransitionPage(child: LobbyScreen(gameId: gameId));
             },
           ),
+          GoRoute(
+            path: AppRoutes.testing,
+            name: 'testing',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: TestingScreen(),
+            ),
+          ),
         ],
       ),
     ],
@@ -79,4 +87,5 @@ class AppRoutes {
   static const String login = '/login';
   static const String game = '/game';
   static const String lobby = '/lobby';
+  static const String testing = '/testing';
 }

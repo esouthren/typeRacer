@@ -79,6 +79,12 @@ class LandingScreen extends StatelessWidget {
                             builder: (context) => const CreateGameDialog(),
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        Button(
+                          label: 'Testing',
+                          buttonColor: ButtonColor.secondary,
+                          onPressed: () => context.push(AppRoutes.testing),
+                        ),
                       ],
                     ),
 
@@ -101,78 +107,97 @@ class LandingScreen extends StatelessWidget {
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => Dialog(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: SizedBox(
-              width: 700, // Wider for car selection
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Join Game',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: pinController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      textAlign: TextAlign.center,
-                      onChanged: (value) => setState(() {}),
-                      style: const TextStyle(fontSize: 24, letterSpacing: 4),
-                      decoration: const InputDecoration(
-                        labelText: 'Game PIN',
-                        hintText: '12345',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    CarSelectionWidget(
-                      crossAxisCount: 6,
-                      onCarSelected: (index) => selectedCarIndex = index,
-                      onNameChanged: (name) {
-                        displayName = name;
-                        setState(() {});
-                      },
-                    ),
-
-                    const SizedBox(height: 24),
-                    isLoading
-                        ? const CircularProgressIndicator()
-                        : Button(
-                            disabled: (pinController.text.length < 5 || displayName.trim().isEmpty),
-                            label: 'Join Game',
-                            onPressed: () async {
-                              setState(() => isLoading = true);
-                              try {
-                                final gameId = await GameService().joinGame(
-                                  pinController.text,
-                                  displayName,
-                                  selectedCarIndex,
-                                );
-                                if (context.mounted) {
-                                  context.pop();
-                                  context.push(AppRoutes.lobby, extra: gameId);
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Error: $e')),
-                                  );
-                                }
-                              } finally {
-                                if (context.mounted) setState(() => isLoading = false);
-                              }
-                            },
-                          ),
-                  ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 8, right: 8),
+                child: IconButton(
+                  icon: Image.asset(
+                    'assets/images/delete.png',
+                    width: 32,
+                    height: 32,
+                  ),
+                  onPressed: () => context.pop(),
                 ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: SizedBox(
+                  width: 700, // Wider for car selection
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Join Game',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: pinController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          textAlign: TextAlign.center,
+                          onChanged: (value) => setState(() {}),
+                          style: const TextStyle(fontSize: 24, letterSpacing: 4),
+                          decoration: const InputDecoration(
+                            labelText: 'Game PIN',
+                            hintText: '12345',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        CarSelectionWidget(
+                          crossAxisCount: 6,
+                          onCarSelected: (index) => selectedCarIndex = index,
+                          onNameChanged: (name) {
+                            displayName = name;
+                            setState(() {});
+                          },
+                        ),
+    
+                        const SizedBox(height: 24),
+                        isLoading
+                            ? const CircularProgressIndicator()
+                            : Button(
+                                disabled: (pinController.text.length < 5 || displayName.trim().isEmpty),
+                                label: 'Join Game',
+                                buttonColor: ButtonColor.onSecondary,
+                                onPressed: () async {
+                                  setState(() => isLoading = true);
+                                  try {
+                                    final gameId = await GameService().joinGame(
+                                      pinController.text,
+                                      displayName,
+                                      selectedCarIndex,
+                                    );
+                                    if (context.mounted) {
+                                      context.pop();
+                                      context.push(AppRoutes.lobby, extra: gameId);
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Error: $e')),
+                                      );
+                                    }
+                                  } finally {
+                                    if (context.mounted) setState(() => isLoading = false);
+                                  }
+                                },
+                              ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

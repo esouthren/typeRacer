@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:typeracer/constants/game_texts.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:typeracer/models/game_model.dart';
+import 'package:typeracer/models/text_category.dart';
 import 'package:typeracer/nav.dart';
 import 'package:typeracer/services/game_service.dart';
 import 'package:typeracer/widgets/button.dart';
 import 'package:typeracer/widgets/car_selection_widget.dart';
+import 'package:typeracer/theme.dart';
 
 class CreateGameDialog extends StatefulWidget {
   const CreateGameDialog({super.key});
@@ -14,17 +18,24 @@ class CreateGameDialog extends StatefulWidget {
 }
 
 class _CreateGameDialogState extends State<CreateGameDialog> {
-  final Map<String, bool> _selectedCategories = {};
+  final Map<TextCategory, bool> _selectedCategories = {};
   bool _isLoading = false;
   int _selectedCarIndex = 0;
   String _displayName = '';
+  final TextEditingController _wordCountController = TextEditingController(text: '75');
 
   @override
   void initState() {
     super.initState();
-    for (var category in GameTexts.categories) {
+    for (var category in TextCategory.values) {
       _selectedCategories[category] = false;
     }
+  }
+
+  @override
+  void dispose() {
+    _wordCountController.dispose();
+    super.dispose();
   }
 
   int get _estimatedMinutes => _selectedCategories.values.where((e) => e).length;
@@ -49,14 +60,41 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
       return;
     }
 
+    final wordCount = int.tryParse(_wordCountController.text) ?? 100;
+
     setState(() => _isLoading = true);
 
     try {
+      // 1. Fetch text samples for each round
+      List<GameRound> rounds = [];
+      for (int i = 0; i < selected.length; i++) {
+        final category = selected[i];
+        
+        // Call cloud function
+        final result = await FirebaseFunctions.instance
+            .httpsCallable('generateSampleText')
+            .call({
+              'category': category.displayName,
+              'length': wordCount.toString(),
+            });
+            
+        final text = result.data['text'] as String;
+        
+        rounds.add(GameRound(
+          text: text,
+          category: category.displayName,
+          roundNumber: i + 1,
+        ));
+      }
+
+      // 2. Create game with fetched texts
       final gameId = await GameService().createGame(
-        selected, 
+        rounds,
+        selected.map((e) => e.displayName).toList(), 
         _displayName, 
         _selectedCarIndex
       );
+      
       if (mounted) {
         context.pop(); // Close dialog
         context.push(AppRoutes.lobby, extra: gameId);
@@ -93,7 +131,7 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
             child: SizedBox(
-              width: 1000, // Wider for two-column layout
+              width: 1000, 
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -111,25 +149,38 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
                           ),
                         ),
                         const SizedBox(width: 32),
-                        // Right Column: Categories
+                        // Right Column: Categories & Settings
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                  
+                              
+                              // Word Count Input
+                              TextField(
+                                controller: _wordCountController,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                decoration: const InputDecoration(
+                                  labelText: 'Word Count per Round',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Round Categories',
-                                    style: Theme.of(context).textTheme.titleMedium,
+                                    style: Theme.of(context).textTheme.titleSmall,
                                   ),
                                   Text(
-                                    'Game Duration: ~$_estimatedMinutes minute${_estimatedMinutes == 1 ? '' : 's'}',
+                                    'Rounds: ${selectedCount()}',
                                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                           fontWeight: FontWeight.bold,
                                           color: Theme.of(context).colorScheme.primary,
                                         ),
-                                    textAlign: TextAlign.center,
                                   ),
                                 ],
                               ),
@@ -139,12 +190,12 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
                                   border: Border.all(color: Colors.grey.shade300),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                constraints: const BoxConstraints(maxHeight: 270), // Match approx height of left column
+                                constraints: const BoxConstraints(maxHeight: 400),
                                 child: ListView(
                                   shrinkWrap: true,
-                                  children: GameTexts.categories.map((category) {
+                                  children: TextCategory.values.map((category) {
                                     return CheckboxListTile(
-                                      title: Text(category),
+                                      title: Text(category.displayName),
                                       value: _selectedCategories[category],
                                       onChanged: (val) {
                                         setState(() {
@@ -163,7 +214,16 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
                     ),
                     const SizedBox(height: 32),
                     _isLoading
-                        ? const Center(child: CircularProgressIndicator())
+                        ? Column(
+                            children: [
+                              const CircularProgressIndicator(),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Generating game texts...',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ],
+                          )
                         : SizedBox(
                             width: 300,
                             child: Button(
@@ -181,4 +241,6 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
       ),
     );
   }
+  
+  int selectedCount() => _selectedCategories.values.where((e) => e).length;
 }

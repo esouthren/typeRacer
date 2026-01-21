@@ -11,23 +11,9 @@ class GameService {
   final AuthService _authService = AuthService();
 
   // Create a new game
-  Future<String> createGame(List<String> categories, String displayName, int selectedCarIndex) async {
+  Future<String> createGame(List<GameRound> rounds, List<String> categories, String displayName, int selectedCarIndex) async {
     final user = _authService.currentUser;
     if (user == null) throw Exception('Must be logged in to create a game');
-
-    // Generate rounds based on categories
-    final List<GameRound> rounds = [];
-    for (int i = 0; i < categories.length; i++) {
-      final category = categories[i];
-      final text = GameTexts.texts[category] ?? '';
-      if (text.isNotEmpty) {
-        rounds.add(GameRound(
-          text: text,
-          category: category,
-          roundNumber: i + 1,
-        ));
-      }
-    }
 
     if (rounds.isEmpty) throw Exception('No valid categories selected');
 

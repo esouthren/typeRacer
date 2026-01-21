@@ -45,6 +45,10 @@ class _GameScreenState extends State<GameScreen> {
           return GameSummaryView(game: game);
         }
 
+        if (game.status == GameStatus.lobby) {
+           return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+
         return MultiplayerGameView(game: game);
       },
     );
@@ -335,36 +339,24 @@ class CountdownOverlay extends StatefulWidget {
 class _CountdownOverlayState extends State<CountdownOverlay> {
   late Timer _timer;
   int _secondsLeft = 0;
-  double _opacity = 1.0;
-  late final int _initialDurationMs;
 
   @override
   void initState() {
     super.initState();
-    final diff = widget.startTime.difference(DateTime.now());
-    _initialDurationMs = diff.inMilliseconds;
     _updateTime();
-    _timer = Timer.periodic(const Duration(milliseconds: 16), (_) => _updateTime());
+    _timer = Timer.periodic(const Duration(milliseconds: 50), (_) => _updateTime());
   }
   
   void _updateTime() {
     final now = DateTime.now();
     final diff = widget.startTime.difference(now);
-    final msRemaining = diff.inMilliseconds;
-    
-    // Update opacity
-    double newOpacity = 0.0;
-    if (_initialDurationMs > 0) {
-      newOpacity = (msRemaining / _initialDurationMs).clamp(0.0, 1.0);
-    }
     
     // Update seconds
     final newSeconds = diff.inSeconds + 1;
 
-    if (newSeconds != _secondsLeft || _opacity != newOpacity) {
+    if (newSeconds != _secondsLeft) {
       setState(() {
         _secondsLeft = newSeconds;
-        _opacity = newOpacity;
       });
     }
   }
@@ -380,7 +372,7 @@ class _CountdownOverlayState extends State<CountdownOverlay> {
     if (_secondsLeft <= 0) return const SizedBox.shrink();
     
     return Container(
-      color: Colors.black.withValues(alpha: _opacity),
+      color: Colors.black,
       child: Center(
         child: Text(
           '$_secondsLeft',

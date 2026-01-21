@@ -44,7 +44,7 @@ class Button extends StatelessWidget {
     
     const borderSide = BorderSide(
       color: Colors.black,
-      width: 5.0,
+      width: 4.0,
     );
 
     final backgroundColor = switch (buttonColor) {
