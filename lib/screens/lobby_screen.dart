@@ -42,12 +42,16 @@ class LobbyScreen extends StatelessWidget {
           if (game.status == GameStatus.in_progress ||
               game.status == GameStatus.counting_down) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (GoRouter.of(context).state!.uri.toString() !=
-                  AppRoutes.game) {
-                // Pass gameId as extra? No, the route should probably accept ID.
-                // Current AppRoutes.game is '/game'. We need '/game/:id'.
-                // For now, let's use extra.
-                context.go(AppRoutes.game, extra: gameId);
+              if (!context.mounted) return;
+              
+              final currentRound = game.rounds.isNotEmpty ? game.rounds[game.currentRoundIndex] : null;
+              final startTime = currentRound?.startTime;
+              
+              // If round hasn't started yet, go to countdown
+              if (startTime != null && DateTime.now().isBefore(startTime)) {
+                 context.go(AppRoutes.countdown, extra: gameId);
+              } else {
+                 context.go(AppRoutes.game, extra: gameId);
               }
             });
           }

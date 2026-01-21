@@ -9,6 +9,7 @@ import 'package:typeracer/services/auth_service.dart';
 import 'package:typeracer/services/game_service.dart';
 import 'package:typeracer/widgets/button.dart';
 import 'package:typeracer/widgets/visual_keyboard.dart';
+import 'package:typeracer/widgets/countdown_overlay.dart';
 
 class GameScreen extends StatefulWidget {
   final String? gameId;
@@ -282,6 +283,15 @@ class _MultiplayerGameViewState extends State<MultiplayerGameView> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isWaitingForStart) {
+      return CountdownOverlay(
+        startTime: _currentRound.startTime!,
+        onFinished: () {
+          setState(() {});
+        },
+      );
+    }
+
     return Stack(
       children: [
         RaceInterface(
@@ -294,10 +304,6 @@ class _MultiplayerGameViewState extends State<MultiplayerGameView> {
           players: widget.game.players, // Pass players for visualization
           scores: widget.game.scores,
         ),
-        
-        // Countdown / Waiting Overlay
-        if (_isWaitingForStart)
-          CountdownOverlay(startTime: _currentRound.startTime!),
           
         // Waiting for others Overlay
         if (_isRoundFinished && widget.game.status != GameStatus.finished)
@@ -323,66 +329,6 @@ class _MultiplayerGameViewState extends State<MultiplayerGameView> {
             ),
           ),
       ],
-    );
-  }
-}
-
-class CountdownOverlay extends StatefulWidget {
-  final DateTime startTime;
-
-  const CountdownOverlay({super.key, required this.startTime});
-
-  @override
-  State<CountdownOverlay> createState() => _CountdownOverlayState();
-}
-
-class _CountdownOverlayState extends State<CountdownOverlay> {
-  late Timer _timer;
-  int _secondsLeft = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _updateTime();
-    _timer = Timer.periodic(const Duration(milliseconds: 50), (_) => _updateTime());
-  }
-  
-  void _updateTime() {
-    final now = DateTime.now();
-    final diff = widget.startTime.difference(now);
-    
-    // Update seconds
-    final newSeconds = diff.inSeconds + 1;
-
-    if (newSeconds != _secondsLeft) {
-      setState(() {
-        _secondsLeft = newSeconds;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_secondsLeft <= 0) return const SizedBox.shrink();
-    
-    return Container(
-      color: Colors.black,
-      child: Center(
-        child: Text(
-          '$_secondsLeft',
-          style: const TextStyle(
-            fontSize: 120,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-      ),
     );
   }
 }

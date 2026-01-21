@@ -1,3 +1,4 @@
+import 'package:typeracer/screens/countdown_screen.dart';
 import 'package:typeracer/screens/game_screen.dart';
 import 'package:typeracer/screens/landing_screen.dart';
 import 'package:typeracer/screens/lobby_screen.dart';
@@ -70,6 +71,15 @@ class AppRouter {
             },
           ),
           GoRoute(
+            path: AppRoutes.countdown,
+            name: 'countdown',
+            pageBuilder: (context, state) {
+               final gameId = state.extra as String?;
+               if (gameId == null) return const NoTransitionPage(child: LandingScreen());
+               return NoTransitionPage(child: CountdownScreen(gameId: gameId));
+            },
+          ),
+          GoRoute(
             path: AppRoutes.testing,
             name: 'testing',
             pageBuilder: (context, state) => const NoTransitionPage(
@@ -87,5 +97,6 @@ class AppRoutes {
   static const String login = '/login';
   static const String game = '/game';
   static const String lobby = '/lobby';
+  static const String countdown = '/countdown';
   static const String testing = '/testing';
 }

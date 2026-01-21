@@ -78,7 +78,9 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
               'length': wordCount.toString(),
             });
             
-        final text = result.data['text'] as String;
+        final text = (result.data['text'] as String)
+            .replaceAll(RegExp(r'[\r\n]+'), ' ')
+            .trim();
         
         rounds.add(GameRound(
           text: text,

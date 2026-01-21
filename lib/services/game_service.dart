@@ -112,13 +112,6 @@ class GameService {
     
     final startTime = DateTime.now().add(const Duration(seconds: 5)); // 5s buffer to be safe
 
-    await _firestore.collection('games').doc(gameId).update({
-      'status': GameStatus.in_progress.name,
-      'rounds': FieldValue.arrayRemove([]), // Trick to trigger update? No, need to update specific item in array.
-      // Firestore array update is tricky for specific index. 
-      // We have to read, modify, write.
-    });
-    
     // Transaction for safety
     await _firestore.runTransaction((transaction) async {
       final docRef = _firestore.collection('games').doc(gameId);
